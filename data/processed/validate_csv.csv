@@ -1,0 +1,4 @@
+date,cases,ww_mean,ww_smooth,pct_mean,pos_lag1,cases_lag1,cases_lag2,week_num,Lineage_other,Lineage_B.1.1.7,Lineage_B.1.351,Lineage_P.1,Lineage_B.1.617.2,Lineage_BA.1,Lineage_BA.2,Lineage_BA.2.12.1,Lineage_BA.4,Lineage_BA.5,Lineage_BQ.1,Lineage_BA.2.75,Lineage_XBB,Lineage_XBB.1.5,Lineage_XBB.1.9,Lineage_XBF,Lineage_XBB.1.16,Lineage_EG.5,Lineage_BA.2.86,Lineage_JN.1,Lineage_KP.2,Lineage_KP.3,Lineage_XEC,Lineage_NB.1.8.1,Lineage_LP.8.1,Lineage_XFG,Lineage_BA.3.2
+2026-02-01,72,164,156.333333333333,0.11,0.11,73,76,122,6.55,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,17.36,0,41.995,34.095
+2026-02-08,59,175,156.666666666667,0.15,0.11,72,73,123,7.69,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7.69,0,46.15,38.46
+2026-02-15,72,101,146.666666666667,0.23,0.15,59,72,124,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

@@ -1,0 +1,22 @@
+sources:
+
+  virus_variants:
+    url: "https://www.rivm.nl/downloadcsv/925241"
+    file_prefix: "variants"
+
+  ww:
+    url: "https://www.rivm.nl/downloadcsv/926331"
+    file_prefix: "ww"
+
+  lab_case:
+    url: "https://www.rivm.nl/downloadcsv/1068971"
+    file_prefix: "lab_case"
+
+  positivity:
+    url: "https://www.rivm.nl/downloadcsv/926381"
+    file_prefix: "positivity"
+
+output:
+
+  raw_dir: "data/raw/"
+  processed_dir: "data/processed/"

@@ -1,0 +1,2 @@
+date,cases,llm_forecast_1,llm_forecast_2,llm_forecast_3,llm_ci_lower_1,llm_ci_upper_1,llm_ci_lower_2,llm_ci_upper_2,llm_ci_lower_3,llm_ci_upper_3,llm_category_1,llm_category_2,llm_category_3,llm_explanation
+2026-01-11,89,130.0,140.0,150.0,,,,,,,increasing,increasing,increasing,"The wastewater and positivity changes have been fluctuating but generally increasing over the past four weeks. The case numbers also show a slight increase. Given these trends, it is predicted that the outbreak risk will continue to increase over the next three weeks."
