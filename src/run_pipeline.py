@@ -738,6 +738,78 @@ def compute_metrics(df_in, max_h=3):
     return metrics_df
 
 
+def build_gauge_output(df_in):
+    """Build 3-row gauge output for the latest forecast origin.
+
+    Columns:
+      - horizon
+      - date (target date for that horizon)
+      - category
+      - risk_score_1_100 (lower means decreasing risk)
+    """
+    if "date" not in df_in.columns:
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+    required = ["llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "cases"]
+    has_cols = all(c in df_in.columns for c in required)
+    if not has_cols:
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+
+    tmp = df_in.copy()
+    tmp["date"] = pd.to_datetime(tmp["date"], errors="coerce")
+    if tmp["date"].dropna().empty:
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+
+    # Anchor gauge to the final surveillance row date.
+    row = tmp.sort_values("date").iloc[-1]
+    origin_date = pd.Timestamp(row["date"])
+    base_cases = row.get("cases", np.nan)
+
+    def _category_from_score(score):
+        # Bin edges requested by user:
+        # [0,20) significantly decreasing
+        # [20,40) decreasing
+        # [40,60) stable
+        # [60,80) increasing
+        # [80,100] significantly increasing
+        if pd.isna(score):
+            return None
+        if score < 20:
+            return "significantly decreasing"
+        if score < 40:
+            return "decreasing"
+        if score < 60:
+            return "stable"
+        if score < 80:
+            return "increasing"
+        return "significantly increasing"
+
+    out_rows = []
+    for h in (1, 2, 3):
+        fcol = f"llm_forecast_{h}"
+        pred = row.get(fcol, np.nan)
+        # Normalize from the same direction signal used by category logic:
+        # pct change relative to latest observed cases.
+        if pd.isna(pred) or pd.isna(base_cases) or float(base_cases) == 0.0:
+            score = np.nan
+        else:
+            pct = (float(pred) - float(base_cases)) / float(base_cases)
+            # Use +/-20% as the significant-change scale from cat_for thresholds.
+            score = 50.0 + 50.0 * (pct / 0.2)
+            score = float(np.clip(score, 1.0, 100.0))
+        cat = _category_from_score(score)
+        target_date = (origin_date + pd.to_timedelta(7 * h, unit="D")).date().isoformat()
+        out_rows.append(
+            {
+                "horizon": h,
+                "date": target_date,
+                "category": cat,
+                "risk_score_1_100": score,
+            }
+        )
+
+    return pd.DataFrame(out_rows, columns=["horizon", "date", "category", "risk_score_1_100"])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mock-llm", action="store_true", help="Use a mock LLM (no API calls)")
@@ -755,7 +827,7 @@ if __name__ == "__main__":
     parser.add_argument("--rerun-failed", action="store_true", help="Resume from existing output and rerun only failed/missing rows")
     parser.add_argument("--resume-file", type=str, default="results/output.csv", help="Path to prior output CSV used by --rerun-failed")
     parser.add_argument("--run-id", type=str, default=None, help="Optional run identifier for artifact tracking")
-    parser.add_argument("--data-path", type=str, default="data/surveillance_COVID19_weekly.csv", help="Input CSV path")
+    parser.add_argument("--data-path", type=str, default="data/processed/surveillance_COVID19_weekly.csv", help="Input CSV path")
     parser.add_argument("--r-script-path", type=str, default="scripts/run_pipeline.R", help="R pipeline script to run first")
     parser.add_argument("--skip-r-pipeline", action="store_true", help="Skip running the R pipeline before loading data")
     parser.add_argument("--include-social-index", dest="include_social_index", action="store_true", default=True, help="Include social index columns in prompt construction when available")
@@ -813,6 +885,15 @@ if __name__ == "__main__":
         metrics_df.to_csv(os.path.join(run_dir, "metrics.csv"), index=False)
         print("Saved forecasts to results/output.csv and metrics to results/metrics.csv")
         print(metrics_df.to_string(index=False))
+
+    gauge_df = build_gauge_output(df)
+    gauge_path = os.path.join("results", "gauge_output.csv")
+    gauge_df.to_csv(gauge_path, index=False)
+    gauge_df.to_csv(os.path.join(run_dir, "gauge_output.csv"), index=False)
+    print(f"Saved gauge output to {gauge_path}")
+    if not gauge_df.empty:
+        print("Latest horizon summary:")
+        print(gauge_df.to_string(index=False))
 
     # copy timing diagnostics into run folder if present
     for timing_name in ["timings.csv", "timings_partial.csv"]:

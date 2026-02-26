@@ -1,6 +1,16 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import argparse
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--run-gauge", action="store_true", help="Run Python gauge plot generator after creating forecast plot")
+parser.add_argument("--run-gauge-r", action="store_true", help="Backward-compatible alias for --run-gauge")
+parser.add_argument("--zoom-recent", action="store_true", help="Zoom x-axis to the most recent weeks plus forecast horizon")
+parser.add_argument("--zoom-weeks", type=int, default=8, help="Weeks to show when --zoom-recent is enabled (default: 8)")
+args = parser.parse_args()
 
 # load results
 df = pd.read_csv("results/output.csv")
@@ -9,10 +19,23 @@ df = pd.read_csv("results/output.csv")
 validation_path = "data/processed/validate_csv.csv"
 validation_df = None
 try:
-    validation_df = pd.read_csv(validation_path, sep=";")
+    with open(validation_path, "r", encoding="utf-8") as f:
+        header = f.readline()
+    if ";" in header and "," not in header:
+        v_sep = ";"
+    elif "," in header:
+        v_sep = ","
+    else:
+        v_sep = None
+    validation_df = pd.read_csv(validation_path, sep=v_sep) if v_sep is not None else pd.read_csv(validation_path, sep=None, engine="python")
     if "date" in validation_df.columns and "cases" in validation_df.columns:
         validation_df = validation_df[["date", "cases"]].copy()
-        validation_df["date"] = pd.to_datetime(validation_df["date"], errors="coerce", dayfirst=True)
+        date_series = validation_df["date"].astype(str).str.strip()
+        # Parse ISO dates as YYYY-MM-DD; parse slash dates as DD/MM/YYYY.
+        iso_mask = date_series.str.match(r"^\d{4}-\d{2}-\d{2}$", na=False)
+        parsed_iso = pd.to_datetime(date_series.where(iso_mask), errors="coerce", format="%Y-%m-%d")
+        parsed_slash = pd.to_datetime(date_series.where(~iso_mask), errors="coerce", dayfirst=True)
+        validation_df["date"] = parsed_iso.fillna(parsed_slash)
         validation_df["cases"] = pd.to_numeric(validation_df["cases"], errors="coerce")
         validation_df = validation_df.dropna(subset=["date", "cases"])
     else:
@@ -34,16 +57,19 @@ plt.figure(figsize=(12,6))
 plt.plot(df["date"], df["cases"], color="#cccccc", linewidth=1)
 plt.scatter(df["date"], df["cases"], color="#1f77b4", s=15, zorder=3)
 if validation_df is not None and len(validation_df) > 0:
+    val_x = validation_df["date"] - pd.to_timedelta(3.5, unit="D")
     plt.scatter(
-        validation_df["date"],
+        val_x,
         validation_df["cases"],
         color="#d62728",
         s=18,
         marker="o",
         edgecolors="black",
         linewidths=0.6,
-        zorder=4,
+        alpha=0.8,
+        zorder=6,
     )
+    plt.plot(val_x, validation_df["cases"], color="#d62728", linewidth=0.9, alpha=0.8, zorder=5)
 
 # observed uncertainty shading (rolling std)
 obs_lower = df["cases"] - 1.96 * rolling_std
@@ -111,7 +137,7 @@ if idx_candidates:
         traj_lowers.append(lo)
         traj_uppers.append(hi)
         traj_cats.append(cat)
-        plt.scatter(date_pt, f, color=color, marker="o", s=28, edgecolors="black", linewidths=0.8, zorder=6)
+        plt.scatter(date_pt, f, color=color, marker="o", s=28, edgecolors="black", linewidths=0.8, zorder=4)
 
     if len(traj_dates) >= 2:
         # Build centered horizon segments with sloped edges and no overlap.
@@ -154,10 +180,10 @@ if idx_candidates:
                 [traj_dates[j - 1], traj_dates[j]],
                 [traj_forecasts[j - 1], traj_forecasts[j]],
                 color=seg_color,
-                linewidth=1.9,
+                linewidth=1.1,
                 alpha=0.98,
                 solid_capstyle="round",
-                zorder=7,
+                zorder=5,
             )
 
 # build legend entries for forecast categories
@@ -175,6 +201,11 @@ for cat, color in forecast_color_map.items():
 plt.xlabel("Date")
 plt.ylabel("Cases")
 plt.title("Observed cases and LLM 1-3 week forecasts (latest origin only)")
+# optional zoom to recent period
+if args.zoom_recent:
+    left = latest_date - pd.to_timedelta(7 * int(max(1, args.zoom_weeks)), unit="D")
+    right = latest_date + pd.to_timedelta(28, unit="D")
+    plt.xlim(left, right)
 # place legend inside the plot (upper-right)
 plt.legend(handles=handles, labels=labels, loc="upper right")
 
@@ -184,6 +215,19 @@ plt.tight_layout()
 out_main = "results/forecast_plot.png"
 plt.savefig(out_main, dpi=150)
 print(f"Saved {out_main}")
+
+if args.run_gauge or args.run_gauge_r:
+    try:
+        proc = subprocess.run([sys.executable, "src/gauge_plot.py"], capture_output=True, text=True)
+        if proc.returncode == 0:
+            if proc.stdout:
+                print(proc.stdout.strip())
+        else:
+            print("WARNING: gauge_plot.py failed.")
+            if proc.stderr:
+                print(proc.stderr.strip()[-1200:])
+    except Exception as e:
+        print(f"WARNING: failed to run gauge_plot.py: {e}")
 
 cols = ["date", "cases"]
 for h in [1,2,3]:

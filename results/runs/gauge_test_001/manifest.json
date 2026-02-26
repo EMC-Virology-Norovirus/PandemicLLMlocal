@@ -1,0 +1,32 @@
+{
+  "run_id": "gauge_test_001",
+  "created_at_utc": "2026-02-25T14:53:42.584126+00:00",
+  "args": {
+    "mock_llm": true,
+    "last_only": true,
+    "model": "mistral",
+    "workers": 1,
+    "timeout": 240.0,
+    "retries": 1,
+    "limit": null,
+    "num_thread": null,
+    "progress_every": 1,
+    "max_tokens": 256,
+    "no_fallback": false,
+    "start_date": null,
+    "rerun_failed": false,
+    "resume_file": "results/output.csv",
+    "run_id": "gauge_test_001",
+    "data_path": "data/processed/surveillance_COVID19_weekly.csv",
+    "r_script_path": "scripts/run_pipeline.R",
+    "skip_r_pipeline": true,
+    "include_social_index": true
+  },
+  "rows_total": 121,
+  "forecast_non_null": 1,
+  "category_non_null": 1,
+  "fallback_rows": 0,
+  "error_rows": 0,
+  "insufficient_rows": 0,
+  "artifacts_dir": "results\\runs\\gauge_test_001"
+}

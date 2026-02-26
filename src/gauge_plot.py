@@ -1,0 +1,103 @@
+import os
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
+def find_latest_gauge_csv():
+    candidates = []
+    top_level = os.path.join("results", "gauge_output.csv")
+    if os.path.exists(top_level):
+        candidates.append(top_level)
+
+    runs_dir = os.path.join("results", "runs")
+    if os.path.isdir(runs_dir):
+        for root, _, files in os.walk(runs_dir):
+            for f in files:
+                if f == "gauge_output.csv":
+                    candidates.append(os.path.join(root, f))
+
+    if not candidates:
+        raise FileNotFoundError("No gauge_output.csv found under results/ or results/runs/")
+
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    return candidates[0]
+
+
+def risk_color(score):
+    if score <= 20:
+        return "darkgreen"
+    if score <= 40:
+        return "green"
+    if score <= 60:
+        return "grey"
+    if score <= 80:
+        return "orange"
+    return "red"
+
+
+def build_gauge_figure(dat_f):
+    dat_f = dat_f.sort_values("horizon").reset_index(drop=True)
+    n = len(dat_f)
+    fig = make_subplots(rows=1, cols=n, specs=[[{"type": "indicator"} for _ in range(n)]])
+
+    for idx, row in dat_f.iterrows():
+        score = float(row["risk_score_1_100"])
+        cat_col = risk_color(score)
+        fig.add_trace(
+            go.Indicator(
+                mode="gauge+number",
+                value=score,
+                title={
+                    "text": (
+                        f"<span style='font-size:20px'><b>Horizon {int(row['horizon'])}</b></span><br>"
+                        f"<span style='font-size:16px;color:gray'>{row['date']}</span><br>"
+                        f"<span style='color:{cat_col}'><b>{str(row['category']).upper()}</b></span>"
+                    )
+                },
+                gauge={
+                    "axis": {"range": [0, 100]},
+                    "bar": {"color": "black"},
+                    "steps": [
+                        {"range": [0, 20], "color": "darkgreen"},
+                        {"range": [20, 40], "color": "green"},
+                        {"range": [40, 60], "color": "yellow"},
+                        {"range": [60, 80], "color": "orange"},
+                        {"range": [80, 100], "color": "red"},
+                    ],
+                    "threshold": {"line": {"color": "black", "width": 6}, "value": score},
+                },
+            ),
+            row=1,
+            col=idx + 1,
+        )
+
+    fig.update_layout(margin={"t": 120})
+    return fig
+
+
+def main():
+    gauge_path = find_latest_gauge_csv()
+    dat_f = pd.read_csv(gauge_path)
+    required = {"horizon", "date", "category", "risk_score_1_100"}
+    missing = required - set(dat_f.columns)
+    if missing:
+        raise ValueError(f"Gauge file missing required columns: {sorted(missing)}")
+    dat_f = dat_f.dropna(subset=["horizon", "date", "risk_score_1_100"])
+    if dat_f.empty:
+        raise ValueError("Gauge file has no rows with required values.")
+
+    fig = build_gauge_figure(dat_f)
+    print(f"Using gauge data: {gauge_path}")
+    out_png = os.path.join("results", "gauge_plot.png")
+    try:
+        fig.write_image(out_png, scale=2, width=1400, height=500)
+        print(f"Saved {out_png}")
+    except Exception as e:
+        out_html = os.path.join("results", "gauge_plot.html")
+        fig.write_html(out_html, include_plotlyjs="cdn")
+        print(f"WARNING: PNG export failed ({e}). Saved {out_html} instead.")
+
+
+if __name__ == "__main__":
+    main()

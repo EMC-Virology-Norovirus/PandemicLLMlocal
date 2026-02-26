@@ -1,0 +1,4 @@
+horizon,date,category,risk_score_1_100
+1,2026-02-01,stable,50
+2,2026-02-08,decreasing,30
+3,2026-02-15,significantly decreasing,10
