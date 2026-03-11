@@ -1,10 +1,11 @@
 project:
   type: website
-  output-dir: _site
+  output-dir: docs
   execute-dir: project
 
 website:
   title: "PandemicLLM Reports"
+  site-path: "/PandemicLLMlocal/"
   navbar:
     left:
       - href: index.qmd
