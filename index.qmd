@@ -1,0 +1,36 @@
+---
+title: "PandemicLLM Reporting"
+---
+
+::: {.hero}
+# PandemicLLM Reporting
+
+This Quarto project is a reporting layer over the artifacts already written to `results/`. It does not run forecasting code during render.
+
+The first dashboard reads the current COVID outputs and the latest run metadata. Future tasks can be added as additional pages as long as their pipelines emit stable result files.
+:::
+
+## Current Pages
+
+::: {.card-grid}
+::: {.panel-card}
+### COVID Dashboard
+
+Reads `results/output.csv`, `results/metrics.csv`, `results/gauge_output.csv`, and the newest manifest under `results/runs/`.
+
+[Open the dashboard](dashboards/covid.qmd)
+:::
+
+::: {.panel-card}
+### Scaling Path
+
+Add new pages under `dashboards/` or `reports/`, and keep each task's pipeline responsible for writing versioned artifacts into `results/`.
+:::
+:::
+
+## Project Convention
+
+- Pipelines produce artifacts.
+- Quarto pages read artifacts.
+- Run metadata lives with the run under `results/runs/<run_id>/`.
+- Shared styling lives in `styles.css`.

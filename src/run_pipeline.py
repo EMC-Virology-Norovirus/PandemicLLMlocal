@@ -10,17 +10,43 @@ import concurrent.futures
 from datetime import datetime, timezone
 import shutil
 import subprocess
+import glob
 import ollama
 
 df = pd.DataFrame()
 
 
-def run_r_pipeline(r_script_path):
+def _find_rscript_exe(explicit_path=None):
+    if explicit_path:
+        if os.path.exists(explicit_path):
+            return explicit_path
+        raise FileNotFoundError(f"Provided Rscript path does not exist: {explicit_path}")
+
+    on_path = shutil.which("Rscript")
+    if on_path:
+        return on_path
+
+    # Common Windows install patterns.
+    candidates = []
+    candidates.extend(glob.glob(r"C:\Program Files\R\R-*\bin\Rscript.exe"))
+    candidates.extend(glob.glob(r"C:\Program Files\R\R-*\bin\x64\Rscript.exe"))
+    candidates.extend(glob.glob(r"C:\Program Files (x86)\R\R-*\bin\Rscript.exe"))
+    candidates.extend(glob.glob(r"C:\Program Files (x86)\R\R-*\bin\x64\Rscript.exe"))
+    if candidates:
+        candidates.sort()
+        return candidates[-1]
+    return None
+
+
+def run_r_pipeline(r_script_path, rscript_exe=None):
     if not os.path.exists(r_script_path):
         raise FileNotFoundError(f"R pipeline script not found: {r_script_path}")
-    rscript = shutil.which("Rscript")
+    rscript = _find_rscript_exe(rscript_exe)
     if rscript is None:
-        raise RuntimeError("Rscript was not found on PATH. Install R and ensure Rscript is available.")
+        raise RuntimeError(
+            "Rscript not found. Either add Rscript to PATH or pass --rscript-exe "
+            "(e.g. \"C:\\Program Files\\R\\R-4.4.1\\bin\\Rscript.exe\")."
+        )
     print(f"Running R data pipeline: {r_script_path}")
     proc = subprocess.run([rscript, r_script_path], capture_output=True, text=True)
     if proc.returncode != 0:
@@ -829,6 +855,7 @@ if __name__ == "__main__":
     parser.add_argument("--run-id", type=str, default=None, help="Optional run identifier for artifact tracking")
     parser.add_argument("--data-path", type=str, default="data/processed/surveillance_COVID19_weekly.csv", help="Input CSV path")
     parser.add_argument("--r-script-path", type=str, default="scripts/run_pipeline.R", help="R pipeline script to run first")
+    parser.add_argument("--rscript-exe", type=str, default=None, help="Optional full path to Rscript executable")
     parser.add_argument("--skip-r-pipeline", action="store_true", help="Skip running the R pipeline before loading data")
     parser.add_argument("--include-social-index", dest="include_social_index", action="store_true", default=True, help="Include social index columns in prompt construction when available")
     parser.add_argument("--exclude-social-index", dest="include_social_index", action="store_false", help="Exclude social index columns from prompt construction")
@@ -836,7 +863,7 @@ if __name__ == "__main__":
 
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     if not args.skip_r_pipeline:
-        run_r_pipeline(args.r_script_path)
+        run_r_pipeline(args.r_script_path, rscript_exe=args.rscript_exe)
     load_and_prepare_data(args.data_path, include_social_index=args.include_social_index)
 
     run(

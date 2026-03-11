@@ -1,0 +1,58 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "PandemicLLM Reporting",
+    "section": "",
+    "text": "This Quarto project is a reporting layer over the artifacts already written to results/. It does not run forecasting code during render.\nThe first dashboard reads the current COVID outputs and the latest run metadata. Future tasks can be added as additional pages as long as their pipelines emit stable result files."
+  },
+  {
+    "objectID": "index.html#current-pages",
+    "href": "index.html#current-pages",
+    "title": "PandemicLLM Reporting",
+    "section": "Current Pages",
+    "text": "Current Pages\n\n\nCOVID Dashboard\nReads results/output.csv, results/metrics.csv, results/gauge_output.csv, and the newest manifest under results/runs/.\nOpen the dashboard\n\n\nScaling Path\nAdd new pages under dashboards/ or reports/, and keep each task’s pipeline responsible for writing versioned artifacts into results/."
+  },
+  {
+    "objectID": "index.html#project-convention",
+    "href": "index.html#project-convention",
+    "title": "PandemicLLM Reporting",
+    "section": "Project Convention",
+    "text": "Project Convention\n\nPipelines produce artifacts.\nQuarto pages read artifacts.\nRun metadata lives with the run under results/runs/&lt;run_id&gt;/.\nShared styling lives in styles.css."
+  },
+  {
+    "objectID": "dashboards/covid.html",
+    "href": "dashboards/covid.html",
+    "title": "COVID Dashboard",
+    "section": "",
+    "text": "This page reads the latest forecast artifacts already present in results/. It does not rerun the pipeline.\n    \n      Latest surveillance week\n      2026-02-08\n      \n    \n    \n    \n      Observed cases\n      60\n      \n    \n    \n    \n      1-week forecast\n      55\n      stable\n    \n    \n    \n      Latest run\n      20260309T093732Z\n      Rows: 123"
+  },
+  {
+    "objectID": "dashboards/covid.html#forecast-overview",
+    "href": "dashboards/covid.html#forecast-overview",
+    "title": "COVID Dashboard",
+    "section": "Forecast Overview",
+    "text": "Forecast Overview\n\n\n                            \n                                            \n\n\n\n\nLatest Forecast Horizons\n\n\n\nHorizon\nForecast\nLower CI\nUpper CI\nCategory\n\n\n\n\n1 week\n55.0\n50.0\n60.0\nstable\n\n\n2 week\n58.0\n53.0\n63.0\nstable\n\n\n3 week\n60.0\n55.0\n65.0\nstable"
+  },
+  {
+    "objectID": "dashboards/covid.html#surveillance-signals",
+    "href": "dashboards/covid.html#surveillance-signals",
+    "title": "COVID Dashboard",
+    "section": "Surveillance Signals",
+    "text": "Surveillance Signals"
+  },
+  {
+    "objectID": "dashboards/covid.html#risk-and-evaluation",
+    "href": "dashboards/covid.html#risk-and-evaluation",
+    "title": "COVID Dashboard",
+    "section": "Risk And Evaluation",
+    "text": "Risk And Evaluation\n\n\nRisk Gauge Output\n\n\n\nhorizon\ndate\ncategory\nrisk_score_1_100\n\n\n\n\n1\n2026-02-15\ndecreasing\n29.2\n\n\n2\n2026-02-22\nstable\n41.7\n\n\n3\n2026-03-01\nstable\n50.0\n\n\n\nForecast Metrics\n\n\n\nhorizon\nn\nMAE\nRMSE\nMAPE\nSMAPE\nMASE\nsource\n\n\n\n\n1\n56\n16.05\n23.70\n24.86\n21.93\n0.52\nllm_forecasts\n\n\n2\n55\n24.58\n36.39\n35.99\n29.11\n0.80\nllm_forecasts\n\n\n3\n54\n32.02\n47.57\n39.93\n32.24\n1.04\nllm_forecasts"
+  },
+  {
+    "objectID": "dashboards/covid.html#latest-run-metadata",
+    "href": "dashboards/covid.html#latest-run-metadata",
+    "title": "COVID Dashboard",
+    "section": "Latest Run Metadata",
+    "text": "Latest Run Metadata\n\n\nLatest RunNewest manifest selected by modified time under results/runs/.\n\n\n\nField\nValue\n\n\n\n\nRun ID\n20260309T093732Z\n\n\nCreated UTC\n2026-03-09T10:34:09.412893+00:00\n\n\nModel\nphi3\n\n\nWorkers\n2\n\n\nStart date\n2025-01-01\n\n\nForecast rows\n57\n\n\nFallback rows\n0\n\n\nError rows\n0\n\n\nArtifacts dir\nresults\\runs\\20260309T093732Z"
+  }
+]

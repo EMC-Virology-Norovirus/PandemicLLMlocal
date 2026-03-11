@@ -10,10 +10,24 @@ raw_files <- list.files(
   full.names = TRUE
 )
 
-ww <- fread(raw_files[grepl("ww_", raw_files)])
-variant<- fread(raw_files[grepl("variant", raw_files)])
-case <- fread(raw_files[grepl("case", raw_files)])
-pos <- fread(raw_files[grepl("positiv", raw_files)])
+pick_latest_file <- function(pattern, label) {
+  matches <- raw_files[grepl(pattern, basename(raw_files), ignore.case = TRUE)]
+  if (length(matches) == 0) {
+    stop(paste0("No raw file found for ", label, " (pattern: ", pattern, ")."))
+  }
+  matches[which.max(file.info(matches)$mtime)]
+}
+
+ww_file <- pick_latest_file("ww_", "wastewater")
+variant_file <- pick_latest_file("variant", "variant")
+case_file <- pick_latest_file("case", "case")
+pos_file <- pick_latest_file("positiv", "positivity")
+
+
+ww <- fread(ww_file)
+variant<- fread(variant_file)
+case <- fread(case_file)
+pos <- fread(pos_file)
 
 
 date_top_melt<-function(data, value_var='count'){
@@ -180,4 +194,4 @@ df_model_hist <- df_model %>% filter(date<=max(df_model$date)-21)
 df_model_test <- df_model %>% filter(date>max(df_model$date)-21)
 
 fwrite(df_model_hist,"data/processed/surveillance_COVID19_weekly.csv")
-fwrite(df_model_test,"data/processed/validate_csv.csv")
+fwrite(df_model_test[,c('date','cases')],"data/processed/validate_csv.csv")

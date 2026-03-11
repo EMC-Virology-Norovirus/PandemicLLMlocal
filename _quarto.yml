@@ -1,0 +1,25 @@
+project:
+  type: website
+  output-dir: _site
+  execute-dir: project
+
+website:
+  title: "PandemicLLM Reports"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: dashboards/covid.qmd
+        text: COVID Dashboard
+
+format:
+  html:
+    theme: cosmo
+    toc: false
+    page-layout: full
+    css: styles.css
+
+execute:
+  echo: false
+  warning: false
+  message: false

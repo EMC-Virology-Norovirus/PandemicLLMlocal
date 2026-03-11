@@ -1,0 +1,6 @@
+.env
+.env.*
+secrets/
+
+/.quarto/
+**/*.quarto_ipynb

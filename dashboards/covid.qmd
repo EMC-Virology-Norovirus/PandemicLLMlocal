@@ -1,0 +1,254 @@
+---
+title: "COVID Dashboard"
+format:
+  html:
+    title-block-banner: false
+---
+
+```{python}
+from pathlib import Path
+import json
+import math
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from IPython.display import HTML, Markdown, display
+
+ROOT = Path(".")
+RESULTS = ROOT / "results"
+RUNS = RESULTS / "runs"
+
+output_path = RESULTS / "output.csv"
+metrics_path = RESULTS / "metrics.csv"
+gauge_path = RESULTS / "gauge_output.csv"
+
+df = pd.read_csv(output_path) if output_path.exists() else pd.DataFrame()
+metrics_df = pd.read_csv(metrics_path) if metrics_path.exists() else pd.DataFrame()
+gauge_df = pd.read_csv(gauge_path) if gauge_path.exists() else pd.DataFrame()
+
+if not df.empty and "date" in df.columns:
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+manifests = sorted(RUNS.glob("*/manifest.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+manifest = {}
+manifest_path = manifests[0] if manifests else None
+if manifest_path is not None:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+latest_row = pd.Series(dtype="object")
+if not df.empty and "date" in df.columns:
+    latest_row = df.sort_values("date").iloc[-1]
+
+forecast_rows = []
+for horizon in (1, 2, 3):
+    forecast_rows.append({
+        "Horizon": f"{horizon} week",
+        "Forecast": latest_row.get(f"llm_forecast_{horizon}") if not latest_row.empty else None,
+        "Lower CI": latest_row.get(f"llm_ci_lower_{horizon}") if not latest_row.empty else None,
+        "Upper CI": latest_row.get(f"llm_ci_upper_{horizon}") if not latest_row.empty else None,
+        "Category": latest_row.get(f"llm_category_{horizon}") if not latest_row.empty else None,
+    })
+forecast_df = pd.DataFrame(forecast_rows)
+
+def fmt_num(value, digits=1):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "N/A"
+    try:
+        return f"{float(value):,.{digits}f}"
+    except Exception:
+        return str(value)
+
+def pill_class(value):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "stable"
+    return str(value).strip().lower().replace(" ", "-")
+
+def pill_html(value):
+    label = "N/A" if value is None or (isinstance(value, float) and math.isnan(value)) else str(value)
+    return f'<span class="status-pill {pill_class(value)}">{label}</span>'
+
+observed_cases = latest_row.get("cases") if not latest_row.empty else None
+latest_date = latest_row.get("date") if not latest_row.empty else None
+latest_forecast_1 = latest_row.get("llm_forecast_1") if not latest_row.empty else None
+latest_forecast_1_category = latest_row.get("llm_category_1") if not latest_row.empty else None
+
+metric_cards = [
+    ("Latest surveillance week", latest_date.strftime("%Y-%m-%d") if pd.notna(latest_date) else "N/A", ""),
+    ("Observed cases", fmt_num(observed_cases, 0), ""),
+    ("1-week forecast", fmt_num(latest_forecast_1, 0), pill_html(latest_forecast_1_category)),
+    ("Latest run", manifest.get("run_id", "N/A"), f"Rows: {manifest.get('rows_total', 'N/A')}"),
+]
+
+cards_html = "".join(
+    f"""
+    <div class="metric-card">
+      <div class="metric-label">{label}</div>
+      <div class="metric-value">{value}</div>
+      <div class="metric-subtle">{subtle}</div>
+    </div>
+    """
+    for label, value, subtle in metric_cards
+)
+display(HTML(f'<div class="hero"><h1>COVID Dashboard</h1><p class="section-intro">This page reads the latest forecast artifacts already present in <code>results/</code>. It does not rerun the pipeline.</p></div><div class="card-grid">{cards_html}</div>'))
+```
+
+## Forecast Overview
+
+```{python}
+if df.empty:
+    display(Markdown("`results/output.csv` was not found or was empty."))
+else:
+    plot_df = df[["date", "cases"]].copy()
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=plot_df["date"],
+            y=plot_df["cases"],
+            mode="lines+markers",
+            name="Observed cases",
+            line=dict(color="#0f766e", width=2),
+            marker=dict(size=6),
+        )
+    )
+
+    if not latest_row.empty and pd.notna(latest_row.get("date")):
+        anchor_date = latest_row["date"]
+        anchor_cases = latest_row.get("cases")
+        forecast_dates = []
+        forecast_values = []
+        forecast_labels = []
+        lower_ci = []
+        upper_ci = []
+        for horizon in (1, 2, 3):
+            forecast = latest_row.get(f"llm_forecast_{horizon}")
+            if pd.isna(forecast):
+                continue
+            forecast_dates.append(anchor_date + pd.to_timedelta(7 * horizon, unit="D"))
+            forecast_values.append(forecast)
+            forecast_labels.append(str(latest_row.get(f"llm_category_{horizon}", "unknown")))
+            lower_ci.append(latest_row.get(f"llm_ci_lower_{horizon}"))
+            upper_ci.append(latest_row.get(f"llm_ci_upper_{horizon}"))
+
+        if forecast_dates:
+            fig.add_trace(
+                go.Scatter(
+                    x=[anchor_date] + forecast_dates,
+                    y=[anchor_cases] + forecast_values,
+                    mode="lines+markers",
+                    name="Latest forecast path",
+                    line=dict(color="#b54708", width=2, dash="dot"),
+                    marker=dict(size=8),
+                    text=["Observed"] + forecast_labels,
+                    hovertemplate="%{x|%Y-%m-%d}<br>%{y:.1f}<br>%{text}<extra></extra>",
+                )
+            )
+            if all(pd.notna(v) for v in lower_ci + upper_ci):
+                fig.add_trace(
+                    go.Scatter(
+                        x=forecast_dates + forecast_dates[::-1],
+                        y=upper_ci + lower_ci[::-1],
+                        fill="toself",
+                        fillcolor="rgba(181, 71, 8, 0.14)",
+                        line=dict(color="rgba(0,0,0,0)"),
+                        hoverinfo="skip",
+                        name="Forecast CI",
+                    )
+                )
+
+    fig.update_layout(
+        height=430,
+        margin=dict(l=10, r=10, t=20, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.92)",
+    )
+    fig.update_xaxes(title=None)
+    fig.update_yaxes(title="Cases")
+    fig.show()
+```
+
+```{python}
+forecast_table = forecast_df.copy()
+if not forecast_table.empty:
+    for col in ["Forecast", "Lower CI", "Upper CI"]:
+        forecast_table[col] = forecast_table[col].apply(lambda v: fmt_num(v, 1))
+    forecast_table["Category"] = forecast_table["Category"].apply(pill_html)
+    display(HTML('<div class="panel-card"><h3>Latest Forecast Horizons</h3>' + forecast_table.to_html(index=False, escape=False) + '</div>'))
+```
+
+## Surveillance Signals
+
+```{python}
+if df.empty:
+    display(Markdown("Surveillance data unavailable."))
+else:
+    signal_cols = [c for c in ["ww_mean", "pct_mean", "wastewater_change", "positivity_change"] if c in df.columns]
+    signal_df = df[["date"] + signal_cols].copy()
+    signal_df = signal_df.melt(id_vars="date", var_name="signal", value_name="value").dropna()
+    if signal_df.empty:
+        display(Markdown("No surveillance signals were available in the current artifact."))
+    else:
+        fig = px.line(
+            signal_df,
+            x="date",
+            y="value",
+            color="signal",
+            height=430,
+            color_discrete_sequence=["#0f766e", "#b54708", "#2563eb", "#8b5cf6"],
+        )
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=20, b=10),
+            legend_title_text="",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(255,255,255,0.92)",
+        )
+        fig.update_xaxes(title=None)
+        fig.update_yaxes(title=None)
+        fig.show()
+```
+
+## Risk And Evaluation
+
+```{python}
+cards = []
+
+if not gauge_df.empty:
+    gauge_display = gauge_df.copy()
+    gauge_display["risk_score_1_100"] = gauge_display["risk_score_1_100"].apply(lambda v: fmt_num(v, 1))
+    gauge_display["category"] = gauge_display["category"].apply(pill_html)
+    cards.append('<div class="panel-card"><h3>Risk Gauge Output</h3>' + gauge_display.to_html(index=False, escape=False) + '</div>')
+
+if not metrics_df.empty:
+    metrics_display = metrics_df.copy()
+    for col in ["MAE", "RMSE", "MAPE", "SMAPE", "MASE"]:
+        if col in metrics_display.columns:
+            metrics_display[col] = metrics_display[col].apply(lambda v: fmt_num(v, 2))
+    cards.append('<div class="panel-card"><h3>Forecast Metrics</h3>' + metrics_display.to_html(index=False, escape=False) + '</div>')
+
+if cards:
+    display(HTML('<div class="two-col">' + "".join(cards[:2]) + '</div>'))
+else:
+    display(Markdown("Gauge and metrics artifacts were not available."))
+```
+
+## Latest Run Metadata
+
+```{python}
+if not manifest:
+    display(Markdown("No run manifest was found under `results/runs/`."))
+else:
+    args = manifest.get("args", {})
+    rows = [
+        ("Run ID", manifest.get("run_id")),
+        ("Created UTC", manifest.get("created_at_utc")),
+        ("Model", args.get("model")),
+        ("Workers", args.get("workers")),
+        ("Start date", args.get("start_date")),
+        ("Forecast rows", manifest.get("forecast_non_null")),
+        ("Fallback rows", manifest.get("fallback_rows")),
+        ("Error rows", manifest.get("error_rows")),
+        ("Artifacts dir", manifest.get("artifacts_dir")),
+    ]
+    meta_df = pd.DataFrame(rows, columns=["Field", "Value"])
+    display(HTML('<div class="panel-card"><h3>Latest Run</h3><p class="small-note">Newest manifest selected by modified time under <code>results/runs/</code>.</p>' + meta_df.to_html(index=False) + '</div>'))
+```
