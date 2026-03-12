@@ -87,7 +87,7 @@ def load_and_prepare_data(data_path, include_social_index=True):
 
     # Optional: remove social-index features when unavailable/undesired.
     if not include_social_index:
-        drop_cols = [c for c in ["social_index", "social_lag1"] if c in df.columns]
+        drop_cols = [c for c in ["social_index", "social_lag1", "news_lag1"] if c in df.columns]
         if drop_cols:
             df = df.drop(columns=drop_cols)
 
@@ -122,10 +122,16 @@ def create_prompt_for_index(df_local, idx, include_social_index=True):
         top_pct = _fmt_pct(r.get("top_lineage_pct"), pct=True)
         top_change = _fmt_pct(r.get("top_lineage_pct_change"))
         social_segment = ""
-        if include_social_index and ("social_index" in df_local.columns):
-            social_val = r.get("social_index", "N/A")
-            social_lag = r.get("social_lag1", "N/A")
-            social_segment = f", Social index {social_val}, Social lag1 {social_lag}"
+        if include_social_index:
+            social_parts = []
+            if "social_index" in df_local.columns:
+                social_parts.append(f"Social index {r.get('social_index', 'N/A')}")
+            if "social_lag1" in df_local.columns:
+                social_parts.append(f"Social lag1 {r.get('social_lag1', 'N/A')}")
+            if "news_lag1" in df_local.columns:
+                social_parts.append(f"News lag1 {r.get('news_lag1', 'N/A')}")
+            if social_parts:
+                social_segment = ", " + ", ".join(social_parts)
 
         lines.append(
             f"{date}: Wastewater change {ww}, Positivity change {pos}, Cases {cases}, Top lineage {top} ({top_pct}), Lineage WoW change {top_change}{social_segment}"
@@ -772,18 +778,19 @@ def build_gauge_output(df_in):
       - date (target date for that horizon)
       - category
       - risk_score_1_100 (lower means decreasing risk)
+      - projected_cases (numeric forecast for that horizon)
     """
     if "date" not in df_in.columns:
-        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
     required = ["llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "cases"]
     has_cols = all(c in df_in.columns for c in required)
     if not has_cols:
-        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
 
     tmp = df_in.copy()
     tmp["date"] = pd.to_datetime(tmp["date"], errors="coerce")
     if tmp["date"].dropna().empty:
-        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100"])
+        return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
 
     # Anchor gauge to the final surveillance row date.
     row = tmp.sort_values("date").iloc[-1]
@@ -830,10 +837,11 @@ def build_gauge_output(df_in):
                 "date": target_date,
                 "category": cat,
                 "risk_score_1_100": score,
+                "projected_cases": float(pred) if not pd.isna(pred) else np.nan,
             }
         )
 
-    return pd.DataFrame(out_rows, columns=["horizon", "date", "category", "risk_score_1_100"])
+    return pd.DataFrame(out_rows, columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
 
 
 if __name__ == "__main__":

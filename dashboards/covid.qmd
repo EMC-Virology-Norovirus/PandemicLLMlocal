@@ -176,37 +176,6 @@ if not forecast_table.empty:
     display(HTML('<div class="panel-card"><h3>Latest Forecast Horizons</h3>' + forecast_table.to_html(index=False, escape=False) + '</div>'))
 ```
 
-## Surveillance Signals
-
-```{python}
-if df.empty:
-    display(Markdown("Surveillance data unavailable."))
-else:
-    signal_cols = [c for c in ["ww_mean", "pct_mean", "wastewater_change", "positivity_change"] if c in df.columns]
-    signal_df = df[["date"] + signal_cols].copy()
-    signal_df = signal_df.melt(id_vars="date", var_name="signal", value_name="value").dropna()
-    if signal_df.empty:
-        display(Markdown("No surveillance signals were available in the current artifact."))
-    else:
-        fig = px.line(
-            signal_df,
-            x="date",
-            y="value",
-            color="signal",
-            height=430,
-            color_discrete_sequence=["#0f766e", "#b54708", "#2563eb", "#8b5cf6"],
-        )
-        fig.update_layout(
-            margin=dict(l=10, r=10, t=20, b=10),
-            legend_title_text="",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(255,255,255,0.92)",
-        )
-        fig.update_xaxes(title=None)
-        fig.update_yaxes(title=None)
-        fig.show()
-```
-
 ## Risk And Evaluation
 
 ```{python}

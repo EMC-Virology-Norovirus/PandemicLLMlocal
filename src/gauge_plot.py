@@ -24,6 +24,54 @@ def find_latest_gauge_csv():
     return candidates[0]
 
 
+def find_latest_forecast_csv():
+    candidates = []
+    top_level = os.path.join("results", "latest_forecast.csv")
+    if os.path.exists(top_level):
+        candidates.append(top_level)
+
+    runs_dir = os.path.join("results", "runs")
+    if os.path.isdir(runs_dir):
+        for root, _, files in os.walk(runs_dir):
+            for f in files:
+                if f == "latest_forecast.csv":
+                    candidates.append(os.path.join(root, f))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    return candidates[0]
+
+
+def attach_projected_cases(dat_f):
+    if "projected_cases" in dat_f.columns and dat_f["projected_cases"].notna().all():
+        return dat_f
+
+    forecast_path = find_latest_forecast_csv()
+    if forecast_path is None:
+        if "projected_cases" not in dat_f.columns:
+            dat_f["projected_cases"] = dat_f["risk_score_1_100"]
+        return dat_f
+
+    fdf = pd.read_csv(forecast_path)
+    if fdf.empty:
+        if "projected_cases" not in dat_f.columns:
+            dat_f["projected_cases"] = dat_f["risk_score_1_100"]
+        return dat_f
+
+    row = fdf.iloc[-1]
+    out = dat_f.copy()
+    if "projected_cases" not in out.columns:
+        out["projected_cases"] = pd.NA
+    for h in (1, 2, 3):
+        col = f"llm_forecast_{h}"
+        if col in row.index:
+            out.loc[out["horizon"] == h, "projected_cases"] = row[col]
+    out["projected_cases"] = pd.to_numeric(out["projected_cases"], errors="coerce")
+    out["projected_cases"] = out["projected_cases"].fillna(out["risk_score_1_100"])
+    return out
+
+
 def risk_color(score):
     if score <= 20:
         return "darkgreen"
@@ -43,11 +91,15 @@ def build_gauge_figure(dat_f):
 
     for idx, row in dat_f.iterrows():
         score = float(row["risk_score_1_100"])
+        projected_cases = row.get("projected_cases", score)
+        if pd.isna(projected_cases):
+            projected_cases = score
         cat_col = risk_color(score)
         fig.add_trace(
             go.Indicator(
                 mode="gauge+number",
-                value=score,
+                value=float(projected_cases),
+                number={"valueformat": ".0f", "font": {"size": 44}},
                 title={
                     "text": (
                         f"<span style='font-size:20px'><b>Horizon {int(row['horizon'])}</b></span><br>"
@@ -57,7 +109,8 @@ def build_gauge_figure(dat_f):
                 },
                 gauge={
                     "axis": {"range": [0, 100]},
-                    "bar": {"color": "black"},
+                    # Keep gauge risk-marker behavior tied to score, while number displays projected cases.
+                    "bar": {"color": "rgba(0,0,0,0)"},
                     "steps": [
                         {"range": [0, 20], "color": "darkgreen"},
                         {"range": [20, 40], "color": "green"},
@@ -72,7 +125,7 @@ def build_gauge_figure(dat_f):
             col=idx + 1,
         )
 
-    fig.update_layout(margin={"t": 120})
+    fig.update_layout(margin={"t": 120}, template="none")
     return fig
 
 
@@ -83,6 +136,7 @@ def main():
     missing = required - set(dat_f.columns)
     if missing:
         raise ValueError(f"Gauge file missing required columns: {sorted(missing)}")
+    dat_f = attach_projected_cases(dat_f)
     dat_f = dat_f.dropna(subset=["horizon", "date", "risk_score_1_100"])
     if dat_f.empty:
         raise ValueError("Gauge file has no rows with required values.")
