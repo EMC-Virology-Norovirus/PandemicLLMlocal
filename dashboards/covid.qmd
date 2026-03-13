@@ -7,6 +7,7 @@ format:
 
 ```{python}
 from pathlib import Path
+import base64
 import json
 import math
 import pandas as pd
@@ -21,6 +22,7 @@ RUNS = RESULTS / "runs"
 output_path = RESULTS / "output.csv"
 metrics_path = RESULTS / "metrics.csv"
 gauge_path = RESULTS / "gauge_output.csv"
+gauge_plot_path = RESULTS / "gauge_plot.png"
 
 df = pd.read_csv(output_path) if output_path.exists() else pd.DataFrame()
 metrics_df = pd.read_csv(metrics_path) if metrics_path.exists() else pd.DataFrame()
@@ -181,7 +183,14 @@ if not forecast_table.empty:
 ```{python}
 cards = []
 
-if not gauge_df.empty:
+if gauge_plot_path.exists():
+    gauge_b64 = base64.b64encode(gauge_plot_path.read_bytes()).decode("ascii")
+    cards.append(
+        '<div class="panel-card"><h3>Risk Gauge</h3><p class="small-note">Rendered from the existing pipeline artifact <code>results/gauge_plot.png</code>.</p>'
+        + f'<img src="data:image/png;base64,{gauge_b64}" alt="COVID risk gauge" style="width: 100%; height: auto; border-radius: 12px;" />'
+        + "</div>"
+    )
+elif not gauge_df.empty:
     gauge_display = gauge_df.copy()
     gauge_display["risk_score_1_100"] = gauge_display["risk_score_1_100"].apply(lambda v: fmt_num(v, 1))
     gauge_display["category"] = gauge_display["category"].apply(pill_html)
