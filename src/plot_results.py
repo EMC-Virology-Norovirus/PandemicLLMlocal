@@ -87,7 +87,7 @@ forecast_color_map = {
 }
 # plot forecast points for latest origin only, with centered uncertainty ribbons
 latest_date = df["date"].max()
-forecast_cols = [f"llm_forecast_{h}" for h in [1, 2, 3] if f"llm_forecast_{h}" in df.columns]
+forecast_cols = [f"llm_forecast_{h}" for h in [1, 2, 3, 4] if f"llm_forecast_{h}" in df.columns]
 if forecast_cols:
     has_any_forecast = df[forecast_cols].notna().any(axis=1)
     latest_origin_date = df.loc[has_any_forecast, "date"].max() if has_any_forecast.any() else latest_date
@@ -105,7 +105,7 @@ if idx_candidates:
     traj_uppers = [anchor_cases]
     traj_cats = [None]
 
-    for h in [1, 2, 3]:
+    for h in [1, 2, 3, 4]:
         fcol = f"llm_forecast_{h}"
         clcol = f"llm_ci_lower_{h}"
         cucol = f"llm_ci_upper_{h}"
@@ -173,7 +173,7 @@ if idx_candidates:
             hi_seg = [hi_left, float(highs[k]), hi_right]
             plt.fill_between(x_seg, lo_seg, hi_seg, color=seg_color, alpha=0.20, zorder=2)
 
-        # Keep connecting centerline from anchor -> t+1 -> t+2 -> t+3.
+        # Keep connecting centerline from anchor -> t+1 -> t+2 -> t+3 -> t+4.
         for j in range(1, len(traj_dates)):
             seg_color = forecast_color_map.get(traj_cats[j], "#7f7f7f")
             plt.plot(
@@ -200,11 +200,11 @@ for cat, color in forecast_color_map.items():
 
 plt.xlabel("Date")
 plt.ylabel("Cases")
-plt.title("Observed cases and LLM 1-3 week forecasts (latest origin only)")
+plt.title("Observed cases and LLM 1-4 week forecasts (latest origin only)")
 # optional zoom to recent period
 if args.zoom_recent:
     left = latest_date - pd.to_timedelta(7 * int(max(1, args.zoom_weeks)), unit="D")
-    right = latest_date + pd.to_timedelta(28, unit="D")
+    right = latest_date + pd.to_timedelta(35, unit="D")
     plt.xlim(left, right)
 # place legend inside the plot (upper-right)
 plt.legend(handles=handles, labels=labels, loc="upper right")
@@ -230,7 +230,7 @@ if args.run_gauge or args.run_gauge_r:
         print(f"WARNING: failed to run gauge_plot.py: {e}")
 
 cols = ["date", "cases"]
-for h in [1,2,3]:
+for h in [1, 2, 3, 4]:
     cols += [f"llm_forecast_{h}", f"llm_ci_lower_{h}", f"llm_ci_upper_{h}", f"llm_category_{h}"]
 existing = [c for c in cols if c in df.columns]
 print(df[existing].tail(10))

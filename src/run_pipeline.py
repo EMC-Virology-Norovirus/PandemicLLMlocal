@@ -87,7 +87,7 @@ def load_and_prepare_data(data_path, include_social_index=True):
 
     # Optional: remove social-index features when unavailable/undesired.
     if not include_social_index:
-        drop_cols = [c for c in ["social_index", "social_lag1", "news_lag1"] if c in df.columns]
+        drop_cols = [c for c in ["social_index", "social_lag1", "news_lag1", "tt_lag1"] if c in df.columns]
         if drop_cols:
             df = df.drop(columns=drop_cols)
 
@@ -130,6 +130,8 @@ def create_prompt_for_index(df_local, idx, include_social_index=True):
                 social_parts.append(f"Social lag1 {r.get('social_lag1', 'N/A')}")
             if "news_lag1" in df_local.columns:
                 social_parts.append(f"News lag1 {r.get('news_lag1', 'N/A')}")
+            if "tt_lag1" in df_local.columns:
+                social_parts.append(f"TT lag1 {r.get('tt_lag1', 'N/A')}")
             if social_parts:
                 social_segment = ", " + ", ".join(social_parts)
 
@@ -143,11 +145,11 @@ def create_prompt_for_index(df_local, idx, include_social_index=True):
         "Is outbreak risk significantly increasing, increasing, stable, decreasing, or significantly decreasing based on the last four weeks?",
         "",
         "Task:",
-        "Provide numeric forecasts for 1-week, 2-weeks, and 3-weeks ahead (predicted `cases`) and optional 95% CI for each horizon. Also provide a categorical risk label for each horizon chosen from: [\"significantly increasing\", \"increasing\", \"stable\", \"decreasing\", \"significantly decreasing\"].",
+        "Provide numeric forecasts for 1-week, 2-weeks, 3-weeks, and 4-weeks ahead (predicted `cases`) and optional 95% CI for each horizon. Also provide a categorical risk label for each horizon chosen from: [\"significantly increasing\", \"increasing\", \"stable\", \"decreasing\", \"significantly decreasing\"].",
         "Return ONLY a JSON object with keys:",
-        "  - forecast_1, forecast_2, forecast_3: numeric (predicted cases for 1/2/3 weeks ahead),",
-        "  - ci_lower_1, ci_upper_1, ci_lower_2, ci_upper_2, ci_lower_3, ci_upper_3: numeric or null (optional),",
-        "  - category_1, category_2, category_3: one of the labels above (strings),",
+        "  - forecast_1, forecast_2, forecast_3, forecast_4: numeric (predicted cases for 1/2/3/4 weeks ahead),",
+        "  - ci_lower_1, ci_upper_1, ci_lower_2, ci_upper_2, ci_lower_3, ci_upper_3, ci_lower_4, ci_upper_4: numeric or null (optional),",
+        "  - category_1, category_2, category_3, category_4: one of the labels above (strings),",
         "  - explanation: short text explanation (optional)",
         "Example: {\"forecast_1\": 123.4, \"ci_lower_1\": 100, \"ci_upper_1\": 140, \"category_1\": \"increasing\", \"forecast_2\": 150, ...}",
     ])
@@ -178,15 +180,19 @@ def parse_llm_response(text):
             "forecast_1": obj.get("forecast_1"),
             "forecast_2": obj.get("forecast_2"),
             "forecast_3": obj.get("forecast_3"),
+            "forecast_4": obj.get("forecast_4"),
             "ci_lower_1": obj.get("ci_lower_1"),
             "ci_upper_1": obj.get("ci_upper_1"),
             "ci_lower_2": obj.get("ci_lower_2"),
             "ci_upper_2": obj.get("ci_upper_2"),
             "ci_lower_3": obj.get("ci_lower_3"),
             "ci_upper_3": obj.get("ci_upper_3"),
+            "ci_lower_4": obj.get("ci_lower_4"),
+            "ci_upper_4": obj.get("ci_upper_4"),
             "category_1": obj.get("category_1"),
             "category_2": obj.get("category_2"),
             "category_3": obj.get("category_3"),
+            "category_4": obj.get("category_4"),
             "explanation": obj.get("explanation") if obj.get("explanation") is not None else "",
             "raw": raw_text,
         }
@@ -204,6 +210,7 @@ def parse_llm_response(text):
         f1_keyed = _extract_keyed_float("forecast_1")
         f2_keyed = _extract_keyed_float("forecast_2")
         f3_keyed = _extract_keyed_float("forecast_3")
+        f4_keyed = _extract_keyed_float("forecast_4")
 
         ci_lower_1 = _extract_keyed_float("ci_lower_1")
         ci_upper_1 = _extract_keyed_float("ci_upper_1")
@@ -211,6 +218,8 @@ def parse_llm_response(text):
         ci_upper_2 = _extract_keyed_float("ci_upper_2")
         ci_lower_3 = _extract_keyed_float("ci_lower_3")
         ci_upper_3 = _extract_keyed_float("ci_upper_3")
+        ci_lower_4 = _extract_keyed_float("ci_lower_4")
+        ci_upper_4 = _extract_keyed_float("ci_upper_4")
 
         labels = [
             "significantly increasing",
@@ -229,6 +238,7 @@ def parse_llm_response(text):
         cat1_keyed = _extract_category_keyed("category_1")
         cat2_keyed = _extract_category_keyed("category_2")
         cat3_keyed = _extract_category_keyed("category_3")
+        cat4_keyed = _extract_category_keyed("category_4")
 
         # fallback: find first number in text
         nums = re.findall(r"(-?\d+\.?\d*)", text)
@@ -236,6 +246,7 @@ def parse_llm_response(text):
         f1 = f1_keyed if f1_keyed is not None else (float(nums[0]) if len(nums) > 0 else None)
         f2 = f2_keyed if f2_keyed is not None else (float(nums[1]) if len(nums) > 1 else None)
         f3 = f3_keyed if f3_keyed is not None else (float(nums[2]) if len(nums) > 2 else None)
+        f4 = f4_keyed if f4_keyed is not None else (float(nums[3]) if len(nums) > 3 else None)
         # attempt to pick up category labels in text
         cats = []
         for label in labels:
@@ -244,19 +255,24 @@ def parse_llm_response(text):
         cat1 = cat1_keyed if cat1_keyed is not None else (cats[0] if len(cats) > 0 else None)
         cat2 = cat2_keyed if cat2_keyed is not None else (cats[1] if len(cats) > 1 else None)
         cat3 = cat3_keyed if cat3_keyed is not None else (cats[2] if len(cats) > 2 else None)
+        cat4 = cat4_keyed if cat4_keyed is not None else (cats[3] if len(cats) > 3 else None)
         return {
             "forecast_1": f1,
             "forecast_2": f2,
             "forecast_3": f3,
+            "forecast_4": f4,
             "ci_lower_1": ci_lower_1,
             "ci_upper_1": ci_upper_1,
             "ci_lower_2": ci_lower_2,
             "ci_upper_2": ci_upper_2,
             "ci_lower_3": ci_lower_3,
             "ci_upper_3": ci_upper_3,
+            "ci_lower_4": ci_lower_4,
+            "ci_upper_4": ci_upper_4,
             "category_1": cat1,
             "category_2": cat2,
             "category_3": cat3,
+            "category_4": cat4,
             "explanation": text,
             "raw": text,
         }
@@ -265,11 +281,12 @@ def parse_llm_response(text):
 def _mock_llm_predict(window_df):
     vals = window_df["cases"].dropna()
     if len(vals) == 0:
-        return {"forecast_1": None, "forecast_2": None, "forecast_3": None,
+        return {"forecast_1": None, "forecast_2": None, "forecast_3": None, "forecast_4": None,
                 "ci_lower_1": None, "ci_upper_1": None,
                 "ci_lower_2": None, "ci_upper_2": None,
                 "ci_lower_3": None, "ci_upper_3": None,
-                "category_1": None, "category_2": None, "category_3": None,
+                "ci_lower_4": None, "ci_upper_4": None,
+                "category_1": None, "category_2": None, "category_3": None, "category_4": None,
                 "explanation": "no data", "raw": ""}
     last = float(vals.iat[-1])
     mean = float(vals.mean())
@@ -282,6 +299,7 @@ def _mock_llm_predict(window_df):
     f1 = mean + 1 * trend
     f2 = mean + 2 * trend
     f3 = mean + 3 * trend
+    f4 = mean + 4 * trend
 
     def cat_for(f):
         if last == 0:
@@ -312,15 +330,17 @@ def _mock_llm_predict(window_df):
     cl1, cu1 = ci_for(f1, 1)
     cl2, cu2 = ci_for(f2, 2)
     cl3, cu3 = ci_for(f3, 3)
+    cl4, cu4 = ci_for(f4, 4)
 
     return {
-        "forecast_1": float(f1), "forecast_2": float(f2), "forecast_3": float(f3),
+        "forecast_1": float(f1), "forecast_2": float(f2), "forecast_3": float(f3), "forecast_4": float(f4),
         "ci_lower_1": float(cl1), "ci_upper_1": float(cu1),
         "ci_lower_2": float(cl2), "ci_upper_2": float(cu2),
         "ci_lower_3": float(cl3), "ci_upper_3": float(cu3),
-        "category_1": cat_for(f1), "category_2": cat_for(f2), "category_3": cat_for(f3),
+        "ci_lower_4": float(cl4), "ci_upper_4": float(cu4),
+        "category_1": cat_for(f1), "category_2": cat_for(f2), "category_3": cat_for(f3), "category_4": cat_for(f4),
         "explanation": "mock forecasts with CI",
-        "raw": f"{f1},{f2},{f3}",
+        "raw": f"{f1},{f2},{f3},{f4}",
     }
 
 
@@ -334,11 +354,12 @@ def _fill_missing_with_mock(parsed, window_df):
     mock = _mock_llm_predict(window_df)
     filled = dict(parsed)
     keys_to_fill = [
-        "forecast_1", "forecast_2", "forecast_3",
+        "forecast_1", "forecast_2", "forecast_3", "forecast_4",
         "ci_lower_1", "ci_upper_1",
         "ci_lower_2", "ci_upper_2",
         "ci_lower_3", "ci_upper_3",
-        "category_1", "category_2", "category_3",
+        "ci_lower_4", "ci_upper_4",
+        "category_1", "category_2", "category_3", "category_4",
     ]
     filled_any = False
     for k in keys_to_fill:
@@ -377,11 +398,12 @@ def run(
 ):
     # prepare default empty entry
     default = {
-        "forecast_1": None, "forecast_2": None, "forecast_3": None,
+        "forecast_1": None, "forecast_2": None, "forecast_3": None, "forecast_4": None,
         "ci_lower_1": None, "ci_upper_1": None,
         "ci_lower_2": None, "ci_upper_2": None,
         "ci_lower_3": None, "ci_upper_3": None,
-        "category_1": None, "category_2": None, "category_3": None,
+        "ci_lower_4": None, "ci_upper_4": None,
+        "category_1": None, "category_2": None, "category_3": None, "category_4": None,
         "explanation": None, "raw": ""
     }
 
@@ -424,11 +446,12 @@ def run(
                     idx_map[i] = prev_by_date[d]
 
         llm_cols = [
-            "llm_forecast_1", "llm_forecast_2", "llm_forecast_3",
+            "llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "llm_forecast_4",
             "llm_ci_lower_1", "llm_ci_upper_1",
             "llm_ci_lower_2", "llm_ci_upper_2",
             "llm_ci_lower_3", "llm_ci_upper_3",
-            "llm_category_1", "llm_category_2", "llm_category_3",
+            "llm_ci_lower_4", "llm_ci_upper_4",
+            "llm_category_1", "llm_category_2", "llm_category_3", "llm_category_4",
             "llm_explanation",
         ]
         for i_df, i_prev in idx_map.items():
@@ -442,7 +465,7 @@ def run(
             parsed_results[i_df] = rec
 
             expl = rec.get("explanation")
-            has_missing = any(pd.isna(rec.get(k)) for k in ["forecast_1", "forecast_2", "forecast_3", "category_1", "category_2", "category_3"])
+            has_missing = any(pd.isna(rec.get(k)) for k in ["forecast_1", "forecast_2", "forecast_3", "forecast_4", "category_1", "category_2", "category_3", "category_4"])
             is_failed = False
             if isinstance(expl, str) and (
                 expl.startswith("error:")
@@ -626,15 +649,19 @@ def run(
             df_partial["llm_forecast_1"] = [p.get("forecast_1") for p in parsed_results_list]
             df_partial["llm_forecast_2"] = [p.get("forecast_2") for p in parsed_results_list]
             df_partial["llm_forecast_3"] = [p.get("forecast_3") for p in parsed_results_list]
+            df_partial["llm_forecast_4"] = [p.get("forecast_4") for p in parsed_results_list]
             df_partial["llm_ci_lower_1"] = [p.get("ci_lower_1") for p in parsed_results_list]
             df_partial["llm_ci_upper_1"] = [p.get("ci_upper_1") for p in parsed_results_list]
             df_partial["llm_ci_lower_2"] = [p.get("ci_lower_2") for p in parsed_results_list]
             df_partial["llm_ci_upper_2"] = [p.get("ci_upper_2") for p in parsed_results_list]
             df_partial["llm_ci_lower_3"] = [p.get("ci_lower_3") for p in parsed_results_list]
             df_partial["llm_ci_upper_3"] = [p.get("ci_upper_3") for p in parsed_results_list]
+            df_partial["llm_ci_lower_4"] = [p.get("ci_lower_4") for p in parsed_results_list]
+            df_partial["llm_ci_upper_4"] = [p.get("ci_upper_4") for p in parsed_results_list]
             df_partial["llm_category_1"] = [p.get("category_1") for p in parsed_results_list]
             df_partial["llm_category_2"] = [p.get("category_2") for p in parsed_results_list]
             df_partial["llm_category_3"] = [p.get("category_3") for p in parsed_results_list]
+            df_partial["llm_category_4"] = [p.get("category_4") for p in parsed_results_list]
             df_partial["llm_explanation"] = [p.get("explanation") for p in parsed_results_list]
             os.makedirs("results", exist_ok=True)
             df_partial.to_csv("results/output_partial.csv", index=False)
@@ -643,10 +670,11 @@ def run(
         except Exception:
             pass
 
-    # attach parsed columns for horizons 1-3 (columns for every row; only last row filled if last_only=True)
+    # attach parsed columns for horizons 1-4 (columns for every row; only last row filled if last_only=True)
     df["llm_forecast_1"] = [p.get("forecast_1") for p in parsed_results]
     df["llm_forecast_2"] = [p.get("forecast_2") for p in parsed_results]
     df["llm_forecast_3"] = [p.get("forecast_3") for p in parsed_results]
+    df["llm_forecast_4"] = [p.get("forecast_4") for p in parsed_results]
 
     df["llm_ci_lower_1"] = [p.get("ci_lower_1") for p in parsed_results]
     df["llm_ci_upper_1"] = [p.get("ci_upper_1") for p in parsed_results]
@@ -654,10 +682,13 @@ def run(
     df["llm_ci_upper_2"] = [p.get("ci_upper_2") for p in parsed_results]
     df["llm_ci_lower_3"] = [p.get("ci_lower_3") for p in parsed_results]
     df["llm_ci_upper_3"] = [p.get("ci_upper_3") for p in parsed_results]
+    df["llm_ci_lower_4"] = [p.get("ci_lower_4") for p in parsed_results]
+    df["llm_ci_upper_4"] = [p.get("ci_upper_4") for p in parsed_results]
 
     df["llm_category_1"] = [p.get("category_1") for p in parsed_results]
     df["llm_category_2"] = [p.get("category_2") for p in parsed_results]
     df["llm_category_3"] = [p.get("category_3") for p in parsed_results]
+    df["llm_category_4"] = [p.get("category_4") for p in parsed_results]
 
     df["llm_explanation"] = [p.get("explanation") for p in parsed_results]
 def compute_metrics(df_in, max_h=3):
@@ -771,7 +802,7 @@ def compute_metrics(df_in, max_h=3):
 
 
 def build_gauge_output(df_in):
-    """Build 3-row gauge output for the latest forecast origin.
+    """Build up to 4-row gauge output for the latest forecast origin.
 
     Columns:
       - horizon
@@ -782,7 +813,7 @@ def build_gauge_output(df_in):
     """
     if "date" not in df_in.columns:
         return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
-    required = ["llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "cases"]
+    required = ["llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "llm_forecast_4", "cases"]
     has_cols = all(c in df_in.columns for c in required)
     if not has_cols:
         return pd.DataFrame(columns=["horizon", "date", "category", "risk_score_1_100", "projected_cases"])
@@ -817,8 +848,10 @@ def build_gauge_output(df_in):
         return "significantly increasing"
 
     out_rows = []
-    for h in (1, 2, 3):
+    for h in range(1, 5):
         fcol = f"llm_forecast_{h}"
+        if fcol not in row.index:
+            continue
         pred = row.get(fcol, np.nan)
         # Normalize from the same direction signal used by category logic:
         # pct change relative to latest observed cases.
@@ -904,11 +937,12 @@ if __name__ == "__main__":
     if args.last_only:
         latest_cols = [
             "date", "cases",
-            "llm_forecast_1", "llm_forecast_2", "llm_forecast_3",
+            "llm_forecast_1", "llm_forecast_2", "llm_forecast_3", "llm_forecast_4",
             "llm_ci_lower_1", "llm_ci_upper_1",
             "llm_ci_lower_2", "llm_ci_upper_2",
             "llm_ci_lower_3", "llm_ci_upper_3",
-            "llm_category_1", "llm_category_2", "llm_category_3",
+            "llm_ci_lower_4", "llm_ci_upper_4",
+            "llm_category_1", "llm_category_2", "llm_category_3", "llm_category_4",
             "llm_explanation",
         ]
         df.tail(1)[latest_cols].to_csv("results/latest_forecast.csv", index=False)

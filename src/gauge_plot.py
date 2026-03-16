@@ -63,7 +63,7 @@ def attach_projected_cases(dat_f):
     out = dat_f.copy()
     if "projected_cases" not in out.columns:
         out["projected_cases"] = pd.NA
-    for h in (1, 2, 3):
+    for h in (1, 2, 3, 4):
         col = f"llm_forecast_{h}"
         if col in row.index:
             out.loc[out["horizon"] == h, "projected_cases"] = row[col]

@@ -1,0 +1,4 @@
+horizon,date,category,risk_score_1_100,projected_cases
+1,2026-02-22,significantly decreasing,1.0,1.0
+2,2026-03-01,significantly decreasing,1.0,2.0
+3,2026-03-08,significantly decreasing,1.0,3.0

@@ -2,4 +2,3 @@ horizon,date,category,risk_score_1_100,projected_cases
 1,2026-02-22,decreasing,27.272727272727273,60.0
 2,2026-03-01,decreasing,27.272727272727273,60.0
 3,2026-03-08,decreasing,20.64393939393939,58.25
-4,2026-03-15,significantly decreasing,16.85606060606061,57.25
