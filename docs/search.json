@@ -25,27 +25,27 @@
     "href": "dashboards/covid.html",
     "title": "COVID Dashboard",
     "section": "",
-    "text": "This page reads the latest forecast artifacts already present in results/. It does not rerun the pipeline.\n    \n      Latest surveillance week\n      2026-02-15\n      \n    \n    \n    \n      Observed cases\n      66\n      \n    \n    \n    \n      1-week forecast\n      60\n      increasing\n    \n    \n    \n      Latest run\n      20260316T111113Z\n      Rows: 124"
+    "text": "This page reads the latest forecast artifacts already present in results/. It does not rerun the pipeline.\n    \n      Latest surveillance week\n      2026-02-15\n      \n    \n    \n    \n      Observed cases\n      66\n      \n    \n    \n    \n      1-week forecast\n      55\n      increasing\n    \n    \n    \n      Latest run\n      20260318T100539Z\n      Rows: 124"
   },
   {
     "objectID": "dashboards/covid.html#forecast-overview",
     "href": "dashboards/covid.html#forecast-overview",
     "title": "COVID Dashboard",
     "section": "Forecast Overview",
-    "text": "Forecast Overview\n\n\n                            \n                                            \n\n\n\n\nLatest Forecast Horizons\n\n\n\nHorizon\nForecast\nLower CI\nUpper CI\nCategory\n\n\n\n\n1 week\n60.0\n42.0\n78.5\nincreasing\n\n\n2 week\n60.0\n33.5\n85.0\ndecreasing\n\n\n3 week\n58.2\n26.7\n89.8\ndecreasing"
+    "text": "Forecast Overview\n\n\n                            \n                                            \n\n\n\n\nLatest Forecast Horizons\n\n\n\nHorizon\nForecast\nLower CI\nUpper CI\nCategory\n\n\n\n\n1 week\n55.0\n45.0\n65.0\nincreasing\n\n\n2 week\n50.0\n40.0\n60.0\nstable\n\n\n3 week\n55.0\n26.7\n89.8\ndecreasing"
   },
   {
     "objectID": "dashboards/covid.html#risk-and-evaluation",
     "href": "dashboards/covid.html#risk-and-evaluation",
     "title": "COVID Dashboard",
     "section": "Risk And Evaluation",
-    "text": "Risk And Evaluation\n\n\nRisk GaugeRendered from the existing pipeline artifact results/gauge_plot.png.Forecast Metrics\n\n\n\nhorizon\nn\nMAE\nRMSE\nMAPE\nSMAPE\nMASE\nsource\n\n\n\n\n1\n36\n33.87\n54.66\n33.55\n47.75\n1.11\nllm_forecasts\n\n\n2\n35\n31.14\n41.07\n30.57\n33.37\n1.02\nllm_forecasts\n\n\n3\n34\n46.22\n64.28\n39.97\n48.29\n1.51\nllm_forecasts"
+    "text": "Risk And Evaluation\n\n\nRisk GaugeRendered from the existing pipeline artifact results/gauge_plot.png.Forecast Metrics\n\n\n\nhorizon\nn\nMAE\nRMSE\nMAPE\nSMAPE\nMASE\nsource\n\n\n\n\n1\n36\n73.19\n96.75\n69.59\n128.21\n2.39\nllm_forecasts\n\n\n2\n35\n31.57\n45.33\n29.64\n36.08\n1.03\nllm_forecasts\n\n\n3\n34\n82.83\n104.02\n77.75\n134.68\n2.71\nllm_forecasts"
   },
   {
     "objectID": "dashboards/covid.html#latest-run-metadata",
     "href": "dashboards/covid.html#latest-run-metadata",
     "title": "COVID Dashboard",
     "section": "Latest Run Metadata",
-    "text": "Latest Run Metadata\n\n\nLatest RunNewest manifest selected by modified time under results/runs/.\n\n\n\nField\nValue\n\n\n\n\nRun ID\n20260316T111113Z\n\n\nCreated UTC\n2026-03-16T11:43:27.865858+00:00\n\n\nModel\nphi3\n\n\nWorkers\n1\n\n\nStart date\n2025-06-01\n\n\nForecast rows\n37\n\n\nFallback rows\n0\n\n\nError rows\n0\n\n\nArtifacts dir\nresults\\runs\\20260316T111113Z"
+    "text": "Latest Run Metadata\n\n\nLatest RunNewest manifest selected by modified time under results/runs/.\n\n\n\nField\nValue\n\n\n\n\nRun ID\n20260318T100539Z\n\n\nCreated UTC\n2026-03-18T11:01:23.824000+00:00\n\n\nModel\nphi3\n\n\nWorkers\n1\n\n\nStart date\n2025-06-01\n\n\nForecast rows\n37\n\n\nFallback rows\n0\n\n\nError rows\n0\n\n\nArtifacts dir\nresults\\runs\\20260318T100539Z"
   }
 ]
